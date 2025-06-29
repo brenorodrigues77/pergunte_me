@@ -1,7 +1,10 @@
 import streamlit as st
+import tempfile
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
+from loaders import *
+
 
 tipo_de_arquivo = ['site', 'youtube', 'pdf', 'csv', 'txt']
 
@@ -13,7 +16,32 @@ modelos_ai = {
 MEMORIA = ConversationBufferMemory()
 
 
-def load_modelo(modelos, modelos_selecionado, api_key):
+def load_modelo(modelos, modelos_selecionado, api_key, tipos_de_arquivos, file):
+
+    if tipos_de_arquivos == 'site':
+        document = page_loader(file)
+    if tipos_de_arquivos == 'youtube':
+        document = youtube_loader(file)
+    if tipos_de_arquivos == 'pdf':
+        with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp:
+            temp.write(file.read())
+            name_file = temp.name
+        document = pdf_loader(name_file)
+    if tipos_de_arquivos == 'csv':
+        with tempfile.NamedTemporaryFile(suffix='.csv', delete=False) as temp:
+            temp.write(file.read())
+            name_file = temp.name
+        document = csv_loader(name_file)
+    if tipos_de_arquivos == 'txt':
+        with tempfile.NamedTemporaryFile(suffix='.txt', delete=False) as temp:
+            temp.write(file.read())
+            name_file = temp.name
+        document = txt_loader(name_file)
+
+    print(document)
+
+    st.session_state['document'] = document
+
     chat = modelos_ai[modelos]['chat'](
         model=modelos_selecionado,
         api_key=api_key)
@@ -54,9 +82,9 @@ def sidebar():
     with table[0]:
         tipos_de_arquivos = st.selectbox('suba seus arquivos', tipo_de_arquivo)
         if tipos_de_arquivos == 'site':
-            link = st.text_input('copie e cole o link do site')
+            file = st.text_input('copie e cole o link do site')
         if tipos_de_arquivos == 'youtube':
-            link = st.text_input('copie e cole o link do video')
+            file = st.text_input('copie e cole o link do video')
         if tipos_de_arquivos == 'pdf':
             file = st.file_uploader('suba seu pdf', type=['.pdf'])
         if tipos_de_arquivos == 'csv':
@@ -76,7 +104,8 @@ def sidebar():
         st.session_state[f'api_key {modelos}'] = api_key
 
     if st.button('carregar Pergunta-me', use_container_width=True):
-        load_modelo(modelos, modelos_selecionado, api_key)
+        load_modelo(modelos, modelos_selecionado,
+                    api_key, tipos_de_arquivos, file)
 
 
 def main():
