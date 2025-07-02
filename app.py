@@ -3,8 +3,12 @@ import tempfile
 from langchain.memory import ConversationBufferMemory
 from langchain_openai import ChatOpenAI
 from langchain_groq import ChatGroq
+from langchain.prompts import ChatPromptTemplate
 from loaders import *
 
+
+st.set_page_config(page_title='Pergunte-me',
+                   page_icon=':robot_face:', layout='wide')
 
 tipo_de_arquivo = ['site', 'youtube', 'pdf', 'csv', 'txt']
 
@@ -16,7 +20,7 @@ modelos_ai = {
 MEMORIA = ConversationBufferMemory()
 
 
-def load_modelo(modelos, modelos_selecionado, api_key, tipos_de_arquivos, file):
+def load_files(tipos_de_arquivos, file):
 
     if tipos_de_arquivos == 'site':
         document = page_loader(file)
@@ -38,27 +42,52 @@ def load_modelo(modelos, modelos_selecionado, api_key, tipos_de_arquivos, file):
             name_file = temp.name
         document = txt_loader(name_file)
 
-    print(document)
+        return document
 
-    st.session_state['document'] = document
 
+def load_modelo(modelos, modelos_selecionado, api_key, tipos_de_arquivos, file):
+
+    document = load_files(tipos_de_arquivos, file)
+
+    system_message = ''''Você é um assistente amigável chamado Oráculo.
+            Você possui acesso às seguintes informações vindas 
+            de um documento {}: 
+
+            ####
+            {}
+            ####
+
+            Utilize as informações fornecidas para basear as suas respostas.
+
+            Sempre que houver $ na sua saída, substita por S.
+
+            Se a informação do documento for algo como "Just a moment...Enable JavaScript and cookies to continue" 
+            sugira ao usuário carregar novamente o Oráculo!'''.format(tipos_de_arquivos, document)
+
+    template = ChatPromptTemplate.from_messages([
+        ('system', system_message),
+        ('placeholder', '{chat_history}'),
+        ('user', '{input}')]
+    )
     chat = modelos_ai[modelos]['chat'](
-        model=modelos_selecionado,
-        api_key=api_key)
+        model=modelos_selecionado, api_key=api_key)
 
-    st.session_state['chat'] = chat
+    chain = template | chat
+
+    st.session_state['chain'] = chain
 
 
 def page_chat():
 
-    st.set_page_config(page_title='Pergunte-me',
-                       page_icon=':robot_face:', layout='wide')
-
     st.header('😃 Bem vindo ao Pergunte-me!', divider=True)
+    chain = st.session_state.get('chain')
+
+    if chain is None:
+        st.error('por favor, clique em "carregar Pergunta-me"')
+        st.stop()
 
     mensseger = st.session_state.get('memoria', MEMORIA)
 
-    chat_model = st.session_state.get('chat')
     for mensagem in mensseger.buffer_as_messages:
         chat = st.chat_message(mensagem.type)
         chat.markdown(mensagem.content)
@@ -71,7 +100,10 @@ def page_chat():
         chat.markdown(input_user)
 
         chat = st.chat_message('ai')
-        response = chat.write_stream(chat_model.stream(input_user))
+        response = chat.write_stream(chain.stream(
+            {'input': input_user,
+             'chat_history': mensseger.buffer_as_messages}))
+
         mensseger.chat_memory.add_ai_message(response)
 
         st.session_state['memoria'] = mensseger
@@ -109,9 +141,9 @@ def sidebar():
 
 
 def main():
-    page_chat()
     with st.sidebar:
         sidebar()
+    page_chat()
 
 
 if __name__ == "__main__":
