@@ -41,8 +41,7 @@ def load_files(tipos_de_arquivos, file):
             temp.write(file.read())
             name_file = temp.name
         document = txt_loader(name_file)
-
-        return document
+    return document
 
 
 def load_modelo(modelos, modelos_selecionado, api_key, tipos_de_arquivos, file):
