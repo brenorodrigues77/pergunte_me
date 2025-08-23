@@ -28,7 +28,7 @@ def load_model(modelos, modelos_selecionado, api_key, tipos_de_arquivos, file):
             Sempre que houver $ na sua saída, substita por S.
 
             Se a informação do documento for algo como "Just a moment...Enable JavaScript and cookies to continue"
-            sugira ao usuário carregar novamente o Oráculo!'''.format(tipos_de_arquivos, document)
+            sugira ao usuário carregar novamente o Pergunte-me!'''.format(tipos_de_arquivos, document)
 
     template = ChatPromptTemplate.from_messages([
         ('system', system_message),
